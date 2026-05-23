@@ -3,12 +3,25 @@
  #}
 
 #==============================================================================
-# Red Black Tree implementation
-#==============================================================================
+## ## Red Black Tree implementation
 
-# This algorithm is based on few papers, they are listed at the end of file.
+{#
+  This algorithm is based on few papers:
+  - A dichromatic framework for balanced trees. Leo J. Guibas; Robert Sedgewick
+    DOI: 10.1109/SFCS.1978.3
+  - Efficient implementation of red-black trees with split and catenate
+    operations. Ron Wein
+  - Updating a balanced search tree in O(1) rotations. Robert Tarjan
+    DOI: 10.1016/0020-0190(83)90099-6
+
+  Similar implementation: 
+    https://github.com/standardml/cmlib/blob/master/red-black-tree.sml
+#}
 
 import List
+
+# -----------------------------------------------------------------------------
+# Standard structure
 
 data Color =
   | Red
@@ -24,14 +37,18 @@ data rec Tree Value =
       right: Tree Value
     }
 
-{# Red-black invariant: 
-#        no red node has a red child
-#        Black height invariant: 
-#           for every t = Node(_, _, left, _, right),
-#           black-height(left) = black-height(right)
-#        Leaves are considered black, but do not contribute to black height.
+{#
+  Red-black invariant: 
+  - No red node has a red child
+  - For every given node, all paths from this node
+    down to leaves has same amount of black nodes.
+  - Leaves are considered black.
+  
+  Additionally `blackHeight` is defined as count of black nodes
+  on each path down to leaf from a given node.
 #}
 
+# Tree zipper
 data ZipElem Value =
   | Left of Color, Value, Tree Value
   | Right of Color, Tree Value, Value
@@ -39,7 +56,7 @@ data ZipElem Value =
 # Empty tree
 let empty = Leaf
 
-# Return cached size
+# Returns cached size
 let size tree =
   match tree with
   | Leaf => 0
@@ -52,9 +69,9 @@ let makeNode color left value right =
 
 # Constructor for node
 let construct color size left value right =
-  Node {color,size,left,value,right}
+  Node {color, size, left, value, right}
 
-# Walk upward applying recorded decisions (zipper) to rebuild tree
+# Rebuilds tree from zipper
 let rec zip tree zipper =
   match zipper with
   | [] => tree
@@ -68,10 +85,10 @@ let rec zip tree zipper =
  end
 
 {# Precondition:
- #  (zip (Node (RED, size, left, value ,right) zipper) 
- #  satisfies the black-height invariant, 
- #  and also satisfies the red-black 
- #  invariant except possibly locally
+    (zip (Node (RED, size, left, value ,right) zipper) 
+    satisfies the black-height invariant, 
+    and also satisfies the red-black 
+    invariant except possibly locally
  #}
 let rec zipRed value left right zipper =
   match zipper with
@@ -97,7 +114,8 @@ let rec zipRed value left right zipper =
       (Node {color = Red, size = size3, left = left3,
       value = value3, right = right3}) :: rest =>
     let left'  = makeNode Red left value right
-    let right' = construct Black size3 left3 value3 right3 in
+    let right' = construct Black size3 left3 value3 right3
+    in
     zipRed value2 (makeNode Black left' value1 right1) right' rest
 
   # Father is Red and right child, the uncle is Red and we are left child. 
@@ -108,7 +126,8 @@ let rec zipRed value left right zipper =
       (Node {color = Red, size = size3, left = left3,
       value = value3, right = right3}) value2 :: rest =>
     let left'  = construct Black size3 left3 value3 right3
-    let right' = makeNode Red left value right in
+    let right' = makeNode Red left value right
+    in
     zipRed value2 left' (makeNode Black right' value1 right1) rest
 
   # Father is Red and left child, the uncle is Red and we are right child. 
@@ -119,7 +138,8 @@ let rec zipRed value left right zipper =
       (Node {color = Red, size = size3, left = left3,
       value = value3, right = right3}) :: rest =>
     let left'  = makeNode Red left value right
-    let right' = construct Black size3 left3 value3 right3 in
+    let right' = construct Black size3 left3 value3 right3
+    in
     zipRed value2 (makeNode Black left1 value1 left') right' rest
 
   # Father is Red and right child, the uncle is Red and we are right child. 
@@ -129,7 +149,8 @@ let rec zipRed value left right zipper =
       Right _ (Node {color = Red, size = size3, left = left3,
       value = value3, right = right3}) value2 :: rest =>
     let left'  = construct Black size3 left3 value3 right3
-    let right' = makeNode Red left value right in
+    let right' = makeNode Red left value right
+    in
     zipRed value2 left' (makeNode Black left1 value1 right') rest
 
   # Father is Red and left child, the uncle is Black and we are left child. 
@@ -137,7 +158,8 @@ let rec zipRed value left right zipper =
   # The grandfather is then black and we are rebuilding the tree.
   | Left Red value1 right1 :: Left _ value2 node3 :: rest =>
     let left'  = makeNode Red left value right
-    let right' = makeNode Red right1 value2 node3 in
+    let right' = makeNode Red right1 value2 node3
+    in
     zip (makeNode Black left' value1 right') rest
   
   # Father is Red and right child, the uncle is Black and we are left child. 
@@ -145,7 +167,8 @@ let rec zipRed value left right zipper =
   # The grandfather is then black and we are rebuilding the tree.
   | Left Red value1 right1 :: Right _ node3 value2  :: rest =>
     let left'  = makeNode Red node3 value2 left
-    let right' = makeNode Red right value1 right1 in
+    let right' = makeNode Red right value1 right1
+    in
     zip (makeNode Black left' value right') rest
 
   # Father is Red and left child, the uncle is Black and we are right child. 
@@ -153,7 +176,8 @@ let rec zipRed value left right zipper =
   # The grandfather is then black and we are rebuilding the tree.
   | Right Red left1 value1 :: Left _ value2 node3 :: rest =>
     let left'  = makeNode Red left1 value1 left
-    let right' = makeNode Red right value2 node3 in
+    let right' = makeNode Red right value2 node3
+    in
     zip (makeNode Black left' value right') rest
 
   # Father is Red and right child, the uncle is Black and we are right child. 
@@ -161,7 +185,8 @@ let rec zipRed value left right zipper =
   # The grandfather is then black and we are rebuilding the tree.
   | Right Red left1 value1 :: Right _  node3 value2 :: rest =>
     let left'  = makeNode Red node3 value2 left1
-    let right' = makeNode Red left value right in
+    let right' = makeNode Red left value right
+    in
     zip (makeNode Black left' value1 right') rest
 
   # The father is Red and a root and we are left child.
@@ -177,10 +202,10 @@ let rec zipRed value left right zipper =
  end
 
 {# Precondition:
-#       1. tree is black
-#       2. (zip tree zipper) satisfies the red-black invariant, and it
-#          would satisfy the black-height invariant if the black-height of
-#          tree were one higher
+        1. tree is black
+        2. (zip tree zipper) satisfies the red-black invariant, and it
+           would satisfy the black-height invariant if the black-height of
+           tree were one higher
 #}
 let rec zipBlack tree zipper =
   match zipper with
@@ -200,7 +225,8 @@ let rec zipBlack tree zipper =
       left = left3, value = value3, right = right3})}) ::
       rest =>
     let left'  = makeNode Black tree value1 left2
-    let right' = construct Black size3 left3 value3 right3 in
+    let right' = construct Black size3 left3 value3 right3
+    in
     zip (makeNode color1 left' value2 right') rest
 
   # Tree is right child, and left nephew is Red.
@@ -214,7 +240,8 @@ let rec zipBlack tree zipper =
       value = value3, right = right3}), value = value2, right = right2})
       value1 :: rest =>
     let left'  = construct Black size3 left3 value3 right3
-    let right' = makeNode Black right2 value1 tree in
+    let right' = makeNode Black right2 value1 tree
+    in
     zip (makeNode color1 left' value2 right') rest
   
   # Tree is left child, and right nephew is Red.
@@ -230,7 +257,8 @@ let rec zipBlack tree zipper =
       value = value3, right = right3}),
       value = value2, right = right2}) :: rest =>
     let left'  = makeNode Black tree value1 left3
-    let right' = makeNode Black right3 value2 right2 in
+    let right' = makeNode Black right3 value2 right2
+    in
     zip (makeNode color1 left' value3 right') rest
 
   # Tree is right child, and left nephew is Red.
@@ -246,12 +274,13 @@ let rec zipBlack tree zipper =
       (Node {color = Red, left = left3, value = value3, right = right3})})
       value1 :: rest =>
     let left'  = makeNode Black left2 value2 left3
-    let right' = makeNode Black right3 value1 tree in
+    let right' = makeNode Black right3 value1 tree
+    in
     zip (makeNode color1 left' value3 right') rest
 
   # The father is red and no nephew is red.
   # Then father becomes black and brother becomes red
-  # removing therfore the inequality of blackness. 
+  # removing therefore the inequality of blackness. 
   # After that, the whole tree is reconstructed.
   | Left Red value1 (Node {size = size2, left = left2,
       value = value2, right = right2}) :: rest =>
@@ -260,7 +289,7 @@ let rec zipBlack tree zipper =
 
   # The father is red and no nephew is red.
   # Then father becomes black and brother becomes red
-  # removing therfore the inequality of blackness. 
+  # removing therefore the inequality of blackness. 
   # After that, the whole tree is reconstructed.
   | Right Red (Node {size = size2, left = left2,
       value = value2, right = right2}) value1 :: rest =>
@@ -305,7 +334,7 @@ let rec zipBlack tree zipper =
 
  end
 
-# search splits tree according to compare function and builds zipper
+# Splits tree according to compare function and builds zipper
 let rec search func tree zipper =
   match tree with
   | Leaf => (Leaf, zipper)
@@ -319,7 +348,7 @@ let rec search func tree zipper =
     end
   end
 
-# serachMin finds smallest element in a tree and builds zipper
+# Finds smallest element in a tree and builds zipper
 let rec searchMin tree zipper =
   match tree with
   | Leaf => zipper
@@ -327,7 +356,7 @@ let rec searchMin tree zipper =
     searchMin left (Left color value right :: zipper)
   end
 
-# serachMax finds largest element in a tree and builds zipper
+# Finds largest element in a tree and builds zipper
 let rec searchMax tree zipper =
   match tree with
   | Leaf => zipper
@@ -336,26 +365,30 @@ let rec searchMax tree zipper =
   end
 
 {# Removes a node if one of the child is a Leaf and rebuilds tree
-# Precondition:
-#   (zip (Node (color, _, _, Leaf, child)) zipper) is a valid tree,
-#   or (zip (Node (color, _, _, child, Leaf)) zipper) is a valid tree.
+  Precondition:
+    (zip (Node (color, _, _, Leaf, child)) zipper) is a valid tree,
+    or (zip (Node (color, _, _, child, Leaf)) zipper) is a valid tree.
 #}
 let deleteNearLeaf color child zipper =
   match color with
-  {# child cannot be RED, by red-black invariant,
+  {# Child cannot be RED, by red-black invariant,
      so it must be Leaf, by black-height invariant.
   #}
   | Red => zip Leaf zipper
   | Black =>
     match child with
-    | Node {value} =>
+    | Node {color, value} =>
       # Must be RED with Leaf children, by black-height invariant.
+      assert (match color with
+              | Red => True
+              | _   => False
+              end);
       zip (makeNode Black Leaf value Leaf) zipper
     | Leaf => zipBlack Leaf zipper
     end
   end
 
-{# Deletes node and adds children correctly to zipper and zip back the tree
+{# Deletes node and adds children correctly to zipper and zips back the tree
   Precondition:
     zip (Node (color, _, _, left, right)) zipper is a valid tree.
 #}
@@ -373,7 +406,7 @@ let delete color left right zipper =
       | Right colorLeftMin leftLeftMin valueLeftMin :: zipperr =>
         deleteNearLeaf colorLeftMin leftLeftMin
             (List.append zipperr (Left color valueLeftMin right :: zipper))
-      | _ => Leaf #Fail "postcondition"
+      | _ => Leaf
       end
     end
   | _ =>
@@ -381,11 +414,11 @@ let delete color left right zipper =
     | Left colorRightMin valueRightMin rightRightMin :: zipperr =>
       deleteNearLeaf colorRightMin rightRightMin
           (List.append zipperr (Right color left valueRightMin :: zipper))
-    | _ => Leaf #Fail "postcondition"
+    | _ => Leaf
     end
   end
 
-# makes a root black
+# Makes a root black
 let blacken tree =
   match tree with
   | Node {color = Red, size, left, value, right} =>
@@ -393,7 +426,7 @@ let blacken tree =
   | _ => tree
   end
 
-# returns black height
+# Returns black height
 let rec blackHeight tree acc =
   match tree with
   | Leaf => acc
@@ -401,9 +434,9 @@ let rec blackHeight tree acc =
   | Node {color=Black,left} => blackHeight left (1 + acc)
   end
 
-{#  precondition: blackHeight(tree) >= target >= 0
-    find a black subtree along the left/right spine whose black-height is
-    blackHeight(tree) - target.
+{#  Finds a black subtree along the left/right spine whose black-height is
+    `blackHeight(tree) - target`.
+    precondition: blackHeight(tree) >= target >= 0
 #}
 let rec searchHeight leftward target tree zipper =
   match tree with
@@ -424,9 +457,9 @@ let rec searchHeight leftward target tree zipper =
           (Right Black left value :: zipper)
   end
 
-# adds element to the tree
+# Adds an element to the tree
 let joinVal left value right =
-  # without loss of generality, assume left and right have black roots
+  # Without loss of generality, assume left and right have black roots
   let left = blacken left in
   let right = blacken right in
   let lbh = blackHeight left 0 in
@@ -442,7 +475,7 @@ let joinVal left value right =
     # left and right' are both black and both have black height lbh 
     zipRed value left _right zipper)
 
-# joins two trees
+# Joins two trees
 let join left right =
   match left with
   | Leaf => right
@@ -475,133 +508,97 @@ let rec split compareWithPivot tree =
 
 #==============================================================================
 # Ordered Map signature
-#==============================================================================
 
 parameter ~onError
 
+## Map module signature
 pub data Map Key = Map of {
-  T
 
- {## @brief Creates empty map
-   ##}
+  {## Map type constructor. ##}
+  T : type -> type
+
+  {## Creates empty map. ##}
   , empty : {Val} -> T Val
 
- {## @brief Method to testing whether given map is empty or not
-   # @return True if it's empty false otherwise
-   ##}
+  {## Tests whether given map is empty or not. ##}
   , method isEmpty : {Val} -> T Val ->[] Bool
 
 
- {## @brief Method to get size of map
-   # @return Integer that is a size of map
-   ##}
+  {## Gets the size of map. ##}
   , method size : {Val} -> T Val ->[] Int
 
- {## @brief Method for inserting element to the map
-   # @param Key which will be inserted to the map
-   # @param Value which will be inserted to the map
-   # @return Map with inserted value
-   ##}
-  , method insert : {Val} -> T Val ->
-      Key -> Val ->[] T Val
+  {## Inserts element to the map.  ##}
+  , method insert : {Val} -> T Val -> Key -> Val ->[] T Val
 
- {## @brief Method for inserting element to the map
-   # @param Key which will be inserted to the map
-   # @param Value which will be inserted to the map
-   # @return Map with inserted value
-   # and boolean value if the value was changed
-   # if the key already existed in map
-   ##}
-  , method insertChange : {Val} -> T Val ->
-      Key -> Val ->[] (Pair (T Val) Bool)
+   {##
+     Inserts element to the map. Returns additional flag that marks if
+     structure has been modified.
 
- {## @brief Method for removing key from the map
-   # @param Key which will be removed to the map
-   # @return Map with removed key
+     @param Key which will be inserted to the map.
+     @param Value which will be inserted to the map.
    ##}
+  , method insertChange : {Val} -> T Val -> Key -> Val ->[] (Pair (T Val) Bool)
+
+  {## Removes key from the map.  ##}
   , method remove : {Val} -> T Val -> Key ->[] T Val
 
- {## @brief Method for removing key from the map
-   # @param Key which will be removed to the map
-   # @return Map with removed key
-   #  and boolean value if the map was changed
-   ##}
-  , method removeChange : {Val} -> T Val ->
-      Key ->[] (Pair (T Val) Bool)
+  {##
+    Removes key from the map. Returns additional flag that marks if
+    structure has been modified.
+  ##}
+  , method removeChange : {Val} -> T Val -> Key ->[] (Pair (T Val) Bool)
 
- {## @brief Method for checking if a given key is present in a map
-   ##}
-  , method member : {Val} -> T Val -> Key ->[] Bool
+  {## Checks if a given key is present in a map. ##}
+  , method mem : {Val} -> T Val -> Key ->[] Bool
 
- {## @brief Method for getting value mapping from a key
-   #   returns None if key is not found
-   ##}
+  {## Gets value for a given key. Returns None if key was not found. ##}
   , method find : {Val} -> T Val -> Key ->[] Option Val
 
- {## @brief Method for getting value mapping from a key,
-   #   calls `~onError` if key is not found
-   ##}
+  {## Gets value for a given key. Calls `~onErroe` if key was not found. ##}
   , method findErr :
     {Val, Err, ~onError : Unit ->[Err] Val} -> T Val -> Key ->[Err] Val
 
- {## @brief Method to update mapping on a key using a function
-   # @param key
-   # @param f is called with Option Val based on if the key has mapping
-   #     in the input tree and should return Option Val to update the tree
-   # @return updated tree
-   ##}
-  , method update : {Val,E} -> T Val -> Key ->
-      (Option Val ->[E] Option Val) ->[E] T Val
+  {##
+    Updates mapping on a key using a function. This method may be used to
+    insert, delete and change value.
+  ##}
+  , method update :
+      {Val,E} -> T Val -> Key -> (Option Val ->[E] Option Val) ->[E] T Val
 
- {## @brief Method to fold left through structure of map
-   # @param Function that receives key, value and accumulator
-   # @param Accumulator
-   # @return Result of applying function on keys
-   # and values of map and accumulator
-   ##}
+  {## Folds left through structure of map
+    @return Result of applying function on keys
+      and values of map and accumulator
+  ##}
   , method foldl : {Val, type A,E} -> T Val ->
       (Key -> Val -> A ->[E] A) -> A ->[E] A
 
- {## @brief Method to fold right through structure of map
-   # @param Function that receives key, value and accumulator
-   # @param Accumulator
-   # @return Result of applying function on keys
-   # and values of map and accumulator
+  {## Folds right through structure of map.
+    @return Result of applying function on keys and values of map and
+       accumulator
    ##}
-  , method foldr : {Val, type A,E} -> T Val ->
-      (Key -> Val -> A ->[E] A) -> A ->[E] A
+  , method foldr :
+      {Val, type A,E} -> T Val -> (Key -> Val -> A ->[E] A) -> A ->[E] A
 
- {## @brief Method that returns list of pairs (key,value)
-   ##}
+  {## Returns list of all mappings (pairs of keys and values). ##}
   , method toList : {Val} -> T Val ->[] List (Pair Key Val)
 
- {## @brief Method that returns list of values
-   ##}
+  {## Returns list of values. ##}
   , method toValueList : {Val} -> T Val ->[] List Val
 
- {## @brief Method that returns list of keys
-   ##}
-  , method domain : {Val} -> T Val ->[] List Key
+  {## Returns returns list of keys. ##}
+  , method toKeyList : {Val} -> T Val ->[] List Key
 
- {## @brief Method that maps all values using given function
-   ##}
-  , method mapVal : {Val, type A, E} -> T Val ->
-      (Val ->[E] A) ->[E] T A
+  {## Maps all values in given map.  ##}
+  , method mapVal : {Val, type A, E} -> T Val -> (Val ->[E] A) ->[E] T A
 
- {## @brief Method that maps all (key,value) in a map to (key, func key)
-   ##}
-  , method mapKey : {Val, type A,E} -> T Val ->
-      (Key ->[E] A) ->[E] T A
+  {## Maps all keys in a map to values.  ##}
+  , method mapKey : {Val, type A,E} -> T Val -> (Key ->[E] A) ->[E] T A
 
- {##  @brief Method that applies function to every key and value
-   ##}
+  {## Iterates over all keys and values. ##}
   , method iter : {Val,E} -> T Val ->
       (Key -> Val ->[E] Unit) ->[E] Unit
 
- {## @brief Method that joins two maps
-   # @param Function that resolves conflicts
-   # if maps have the same key
-   ##}
+  {## Joins two maps.  ##}
   , method union : {Val,E} -> T Val -> T Val ->
       (Key -> Val -> Val ->[E] Val) ->[E] T Val
   
@@ -609,7 +606,6 @@ pub data Map Key = Map of {
 
 #==============================================================================
 # Ordered Map implementation
-#==============================================================================
 
 parameter Key
 parameter method compare : Key -> Key ->[] Ord
@@ -767,13 +763,12 @@ let toList tree = foldr (fn key value acc => (key, value) :: acc) tree []
 
 let toValueList tree = foldr (fn key value acc => value :: acc) tree []
 
-let domain tree = foldr (fn key value acc => key :: acc) tree []
+let toKeyList tree = foldr (fn key value acc => key :: acc) tree []
 
 data MapT Key Val = MapT of Tree (Pair Key Val)
 
 #==============================================================================
 # Wrappers
-#==============================================================================
 
 let isEmptyT (MapT tree) = isEmpty tree
 
@@ -789,7 +784,7 @@ let removeT (MapT tree) (key : Key) = MapT (remove tree key)
 let removeChangeT (MapT tree) (key : Key) =
   let (tree,bool) = remove' tree key in (MapT tree, bool)
 
-let memberT (MapT tree) (key : Key) = member tree key
+let memT (MapT tree) (key : Key) = member tree key
 
 let findT (MapT tree) (key : Key) = find tree key
 
@@ -797,19 +792,19 @@ let findErrT (MapT tree) (key : Key) = findErr tree key
 
 let updateT (MapT tree) (key : Key) f = MapT (update tree key f)
 
-let mapFoldl (MapT tree) func acc = foldl func tree acc
+let mapFoldlT (MapT tree) func acc = foldl func tree acc
 
-let mapFoldr (MapT tree) func acc = foldr func tree acc
+let mapFoldrT (MapT tree) func acc = foldr func tree acc
 
 let toListT (MapT tree) = toList tree
 
 let toValueListT (MapT tree) = toValueList tree
 
-let domainT (MapT tree) =  domain tree
+let toKeyListT (MapT tree) = toKeyList tree
 
-let mapVal (MapT tree) func = MapT (map tree func)
+let mapValT (MapT tree) func = MapT (map tree func)
 
-let mapKey (MapT tree) func = MapT (map2 tree func)
+let mapKeyT (MapT tree) func = MapT (map2 tree func)
 
 let iterT (MapT tree) func = iter tree func
 
@@ -818,38 +813,33 @@ let unionT (MapT (tree1 : (Tree (Pair Key _)))) (MapT tree2) merge =
 
 #==============================================================================
 # Ordered Map constructor
-#==============================================================================
 
-pub let make {Key, method compare : Key -> Key ->[] Ord} = Map {
-  T = MapT Key
-  , empty = MapT Leaf
-  , method isEmpty = isEmptyT
-  , method size = sizeMapT
-  , method insert = insertT 
-  , method insertChange = insertChangeT
-  , method remove = removeT 
-  , method removeChange = removeChangeT 
-  , method member = memberT 
-  , method find = findT 
-  , method findErr = fn {~onError} => findErrT 
-  , method update = updateT 
-  , method foldl = mapFoldl
-  , method foldr = mapFoldr
-  , method toList = toListT
-  , method toValueList = toValueListT
-  , method domain = domainT
-  , method mapVal = mapVal
-  , method mapKey = mapKey
-  , method iter = iterT
-  , method union = unionT 
-}
+{##
+  Map functor.
 
-# Papers to read:
-# A dichromatic framework for balanced trees. Leo J. Guibas; Robert Sedgewick
-# DOI: 10.1109/SFCS.1978.3
-# Efficient implementation of red-black trees with split and catenate operations.
-# Ron Wein
-# Updating a balanced search tree in O(1) rotations. Robert Tarjan
-# DOI: 10.1016/0020-0190(83)90099-6
-# Similar implementation: 
-# https://github.com/standardml/cmlib/blob/master/red-black-tree.sml
+  Produces Map module for given key type and compare function.
+##}
+pub let make {Key, method compare : Key -> Key ->[] Ord} =
+  Map { T = MapT Key
+      , empty = MapT Leaf
+      , method isEmpty = isEmptyT
+      , method size = sizeMapT
+      , method insert = insertT
+      , method insertChange = insertChangeT
+      , method remove = removeT 
+      , method removeChange = removeChangeT 
+      , method mem = memT 
+      , method find = findT 
+      , method findErr = fn {~onError} => findErrT 
+      , method update = updateT 
+      , method foldl = mapFoldlT
+      , method foldr = mapFoldrT
+      , method toList = toListT
+      , method toValueList = toValueListT
+      , method toKeyList = toKeyListT
+      , method mapVal = mapValT
+      , method mapKey = mapKeyT
+      , method iter = iterT
+      , method union = unionT 
+      }
+

@@ -149,7 +149,7 @@ let mkTestCase
 
 # Organizes all registered tests into a tree structure
 
-let Map {module SMap} = Map.make {String}
+let Map {module SMap} = Map.make {Key=String}
 
 type NestedCase = Pair String TestCase
 
